@@ -1,19 +1,21 @@
-#!/usr/bin/env python3    # -*- coding: utf-8 -*
-
 """
 main.py 南科大TIS喵课助手
 
 @CreateDate 2021-1-9
-@UpdateDate 2022-6-20
+@UpdateDate 2022-2-12
 """
 
 import _thread
 import requests
+import time
 from os import path
 from re import findall
 from json import loads
 from colorama import init
 from getpass import getpass
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 head = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.0.0 Safari/537.36",
@@ -57,7 +59,7 @@ def getinfo(semester_data):
     """ 用于向tis请求当前学期的课程ID，得到的ID将用于选课的请求
     输入当前学期的日期信息，返回的json包括了课程名和内部的ID """
     course_list = []
-    course_types = {'bxxk': "通识必修选课", 'xxxk': "通识选修选课", "kzyxk": '培养方案内课程', "zynknjxk": '非培养方案内课程', "jhnxk": '计划内选课新生'}
+    course_types = {'bxxk': "通识必修选课", 'xxxk': "通识选修选课", "kzyxk": '培养方案内课程', "zynknjxk": '非培养方案内课程'}
     for course_type in course_types.keys():
         data = {
             "p_xn": semester_data['p_xn'],  # 当前学年
@@ -80,7 +82,6 @@ def getinfo(semester_data):
                 name = name.strip()
                 if name in classData.keys():
                     course_list.append([classData[name], course_type, name])
-
     print("[\x1b[0;32m+\x1b[0m] " + "课程信息读取完毕")
     print("[\x1b[0;34m{}\x1b[0m]".format("=" * 25))
     for course in course_list:
@@ -106,13 +107,16 @@ def submit(semester_data, course):
         "p_id": course[0],  # 课程id
         "p_sfxsgwckb": 1,  # 固定
     }
-    req = requests.post('https://tis.sustech.edu.cn/Xsxk/addGouwuche', data=data, headers=head, verify=False)
-    if "成功" in req.text:
-        print("[\x1b[0;34m{}\x1b[0m]".format("=" * 50), flush=True)
-        print("[\x1b[0;34m█\x1b[0m]\t\t\t" + loads(req.text)['message'], flush=True)
-        print("[\x1b[0;34m{}\x1b[0m]".format("=" * 50), flush=True)
-    else:
-        print("[\x1b[0;30m-\x1b[0m]\t\t\t" + loads(req.text)['message'], flush=True)
+    while True:
+        req = requests.post('https://tis.sustech.edu.cn/Xsxk/addGouwuche', data=data, headers=head, verify=False)
+        if "成功" in req.text:
+            print("成功 " + loads(req.text)['message'] + "\n", flush=True)
+            # print("[\x1b[0;34m{}\x1b[0m]".format("=" * 50), flush=True)
+            # print("[\x1b[0;34m█\x1b[0m]\t\t\t" + loads(req.text)['message'], flush=True)
+            # print("[\x1b[0;34m{}\x1b[0m]".format("=" * 50), flush=True)
+        else:
+            print("失败 " + loads(req.text)['message'] + "\n", flush=True)
+            # print("[\x1b[0;30m-\x1b[0m]\t\t\t" + loads(req.text)['message'], flush=True)
 
 
 def load_course():
@@ -159,28 +163,31 @@ if __name__ == '__main__':
     # 下面先获取当前的学期
     print("[\x1b[0;36m!\x1b[0m] " + "从服务器获取当前喵课时间...")
     semester_info = loads(   # 这里要加mxpylx才能获取到选课所在最新学期
-        requests.post('https://tis.sustech.edu.cn/Xsxk/queryXkdqXnxq', data={"mxpylx": 1}, headers=head, verify=False).text)
+        requests.post('https://tis.sustech.edu.cn/Xsxk/queryXkdqXnxq', data={"mxpylx": 1}, headers=head, verify=False).text )
     print("[\x1b[0;32m+\x1b[0m] " + f"当前学期是{semester_info['p_xn']}学年第{semester_info['p_xq']}学期，为"
                                     f"{['', '秋季', '春季', '小'][int(semester_info['p_xq'])]}学期")
     # 下面获取课程信息
     print("[\x1b[0;36m!\x1b[0m] " + "从服务器下载课程信息，请稍等...")
     postList = getinfo(semester_info)
     # 喵课主逻辑
+    
     while True:
-        print("[\x1b[0;32m+\x1b[0m] " + "按一下回车喵三次，多按同时喵多次")
+        print("[\x1b[0;32m+\x1b[0m] " + "按一下回车喵八个线程，多按同时喵八的整数倍个线程")
         input()
         for c_id in postList:
             try:
-                for _ in range(3):
+                for _ in range(8):
                     _thread.start_new_thread(submit, (semester_info, c_id))
             except:
                 print("线程异常")
-
+        
+        # time.sleep(0.01)
+    
 """
 # timing is everything!
     import datetime,time
-    start = datetime.datetime.strptime(str(datetime.datetime.now().date()) + '12:55', '%Y-%m-%d%H:%M')
-    end = datetime.datetime.strptime(str(datetime.datetime.now().date()) + '13:05', '%Y-%m-%d%H:%M')
+    start = datetime.datetime.strptime(str(datetime.datetime.now().date()) + '12:00', '%Y-%m-%d%H:%M')
+    end = datetime.datetime.strptime(str(datetime.datetime.now().date()) + '13:55', '%Y-%m-%d%H:%M')
     while True:
         n_time = datetime.datetime.now()
         if start < n_time < end:
@@ -189,6 +196,6 @@ if __name__ == '__main__':
                     submit(semester_info, c_id)
                 except:
                     pass
-            time.sleep(0xdeadbeef)
-        time.sleep(0xc0febabe)
+            # time.sleep(0xdeadbeef)
+        # time.sleep(0xc0febabe)
 """
