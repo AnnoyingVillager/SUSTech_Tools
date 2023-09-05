@@ -170,13 +170,12 @@ if __name__ == '__main__':
     print("[\x1b[0;36m!\x1b[0m] " + "从服务器下载课程信息，请稍等...")
     postList = getinfo(semester_info)
     # 喵课主逻辑
-    
+    tRange = int(input("[\x1b[0;36m!\x1b[0m] " + "请输入基准线程个数："))
     while True:
-        print("[\x1b[0;32m+\x1b[0m] " + "按一下回车喵八个线程，多按同时喵八的整数倍个线程")
-        input()
+        input("[\x1b[0;32m+\x1b[0m] " + "按一下回车喵" + str(tRange) + "个线程，多按同时喵" + str(tRange) + "的整数倍个线程")
         for c_id in postList:
             try:
-                for _ in range(8):
+                for _ in range(tRange):
                     _thread.start_new_thread(submit, (semester_info, c_id))
             except:
                 print("线程异常")
